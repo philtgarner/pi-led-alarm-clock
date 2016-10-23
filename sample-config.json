@@ -1,0 +1,27 @@
+{
+	"boot_red"			: 124,
+	"boot_green"		: 26,
+	"boot_blue"			: 173,
+	"alarm_off_duration": 10,
+	"alarms"			: [
+		{
+		"time"			: "07:00",
+		"duration"		: 1200,
+		"start_red"		: 1,
+		"start_green"	: 1,
+		"start_blue"	: 1,
+		"end_red"		: 249,
+		"end_green"		: 253,
+		"end_blue"		: 75,
+		"remain_on"		: 600,
+		"days"			: [
+			"monday",
+			"tuesday",
+			"wednesday",
+			"thursday",
+			"friday"
+		]
+		}
+		
+	]
+}
