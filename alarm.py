@@ -1,10 +1,12 @@
 import schedule
 import time
+from time import strftime
 import json
 from neopixel import *
 from random import shuffle
 import threading
 import os
+import RPi.GPIO as GPIO
 
 #Non-configurable constants
 CONFIG_FILE = 'config.json'
@@ -22,6 +24,12 @@ LED_INVERT 			= False 	# True to invert the signal (when using NPN transistor le
 LED_CHANNEL 		= 0
 LED_STRIP_TYPE 		= ws.WS2811_STRIP_GRB
 
+#Button configuration:
+BUTTON_ONE_PIN 		= 23
+BUTTON_TWO_PIN 		= 8
+LONG_PRESS_TIME 	= 10
+BUTTON_BOUNCE_TIME 	= 1000
+
 #Default settings (will be used if they aren't found in the config file)
 boot_red 			= 100
 boot_green 			= 100
@@ -37,12 +45,79 @@ alarm_on 			= False
 #The LEDs
 strip 				= None
 
+#The off colour
+off = {'red' : 0, 'green' : 0, 'blue' : 0}
+on = {'red' : 0, 'green' : 100, 'blue' : 0}
+
 #Threading locks
 print_lock = threading.Lock()
 current_colour_lock = threading.Lock()
 alarm_status_lock = threading.Lock()
 
+#Start the listeners for the buttons
+def buttonListener():
+	global BUTTON_ONE_PIN
+	global BUTTON_BOUNCE_TIME	
+	GPIO.add_event_detect(BUTTON_ONE_PIN, GPIO.RISING, callback=toggleBedsideLight, bouncetime=BUTTON_BOUNCE_TIME)  
+	GPIO.add_event_detect(BUTTON_TWO_PIN, GPIO.RISING, callback=showOff, bouncetime=BUTTON_BOUNCE_TIME)  
 
+#Spins some LEDs a few times
+def showOff(channel):
+	spin(131,99,255)
+	spin(73,255,78)
+	spin(204,113,38)
+
+#Spins the LEDs in a given colour. Performs one spin
+def spin(r, g, b):
+	global strip
+	for led in range(strip.numPixels()):	
+		for ledOff in range(strip.numPixels()):		
+			strip.setPixelColorRGB(ledOff, 0, 0, 0)
+		strip.setPixelColorRGB(led, r, g, b)
+		strip.show()
+		time.sleep(0.05)
+		
+	for ledOff in range(strip.numPixels()):		
+		strip.setPixelColorRGB(ledOff, 0, 0, 0)
+	strip.show()
+
+#Toggles the bedside light functionality. 
+def toggleBedsideLight(channel):
+	global current_colour_lock
+	global alarm_status_lock
+	global current_red
+	global current_green
+	global current_blue
+	global alarm_on
+	global off
+	global on
+	
+	with alarm_status_lock:
+		if alarm_on:
+			alarm_on = False
+			with current_colour_lock:
+				current_colour = {'red' : current_red, 'green' : current_green, 'blue' : current_blue}
+				alarm_off_thread = threading.Thread(target=transition, args=(current_colour, off, 1, False))
+				alarm_off_thread.daemon = True	
+				#Run the threads
+				alarm_off_thread.start()
+		else:
+			with current_colour_lock:
+				current_colour = {'red' : current_red, 'green' : current_green, 'blue' : current_blue}
+				if current_red == 0 and current_green == 0 and current_blue == 0:
+					light_on_thread = threading.Thread(target=transition, args=(current_colour, on, 1, False))
+					light_on_thread.daemon = True	
+					light_on_thread.start()
+				else:
+					light_off_thread = threading.Thread(target=transition, args=(current_colour, off, 1, False))
+					light_off_thread.daemon = True	
+					light_off_thread.start()				
+			
+#Restarts the Raspberry Pi.
+def restartPi():
+	os.system('sudo shutdown -r now')
+
+#Starts the threads to run the alarm. This will turn the alarm on and then off after the specified duration
 def runAlarm(start, end, duration, remain_on):
 	global alarm_on
 	with alarm_status_lock:
@@ -59,13 +134,14 @@ def runAlarm(start, end, duration, remain_on):
 	#Run the threads
 	alarm_on_thread.start()
 	alarm_off_thread.start()
-	
+
+#Turns the alarm off id it is still on.
 def turnOffAlarm(duration, remain_on):
 	global alarm_on
 	global current_red
 	global current_green
 	global current_blue
-	global  alarm_off_duration
+	global alarm_off_duration
 	
 	out('Waiting for alarm to finish')
 	time.sleep(duration)
@@ -80,7 +156,8 @@ def turnOffAlarm(duration, remain_on):
 		transition(current, off,  alarm_off_duration)
 	with alarm_status_lock:
 		alarm_on = False
-	
+
+#Transitions the LEDs from one colour to another.
 def transition(start, end, duration, interruptable = False):
 	global strip
 	global current_red
@@ -128,10 +205,13 @@ def transition(start, end, duration, interruptable = False):
 	for led in range(strip.numPixels()):
 		strip.setPixelColorRGB(led, end['red'], end['green'], end['blue'])
 		strip.show()
+	current_red = end['red']
+	current_green = end['green']
+	current_blue = end['blue']
 	
 	out('End of transition')
 	
-			
+#Runs a startup sequence (fades LEDs in and out to show program is running)		
 def runStartup():
 	global boot_red
 	global boot_green
@@ -143,11 +223,36 @@ def runStartup():
 	transition(off, boot, in_time)
 	transition(boot, off, out_time)
 
+#Prints a message.
 def out(message):
 	global DEBUG
 	if DEBUG:
 		with print_lock:
 			print(message)
+
+#Schedules a single alarm			
+def loadAlarm(alarm):
+	if 'time' in alarm and 'duration' in alarm and 'days' in alarm and 'remain_on' in alarm:
+		start = {'red' : alarm['start_red'], 'green' : alarm['start_green'], 'blue' : alarm['start_blue']}
+		end = {'red' : alarm['end_red'], 'green' : alarm['end_green'], 'blue' : alarm['end_blue']}
+		#Check the days in turn
+		if 'monday' in alarm['days']:
+			schedule.every().monday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'tuesday' in alarm['days']:
+			schedule.every().tuesday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'wednesday' in alarm['days']:
+			schedule.every().wednesday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'thursday' in alarm['days']:
+			schedule.every().thursday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'friday' in alarm['days']:
+			schedule.every().friday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'saturday' in alarm['days']:
+			schedule.every().saturday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		if 'sunday' in alarm['days']:
+			schedule.every().sunday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+		out('Alarm set for ' + alarm['time'] + ' on ' + str(alarm['days']))
+	else:
+		out('Cannot load alarm')
 
 	
 #Run application
@@ -166,30 +271,26 @@ with open(os.path.join(CONFIG_DIR, CONFIG_FILE)) as config_file:
 		alarm_off_duration = config['alarm_off_duration']	
 	out('Loaded configuration')
 	
+	out('Configuring the buttons...')
+	GPIO.setmode(GPIO.BCM)
+	GPIO.setup(BUTTON_ONE_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+	GPIO.setup(BUTTON_TWO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+	out('Configured the button')
+	out('Starting thread to listen for button presses...')
+	#Listen for button presses
+	buttonListener()
+	out('Started thread to listen for button presses')
+	
+	out('I think the time is: ' + strftime("%Y-%m-%d %H:%M:%S"))
+	
+	
 	out('Loading alarms...')
 	#Check to see if there are any alarms listed
 	if 'alarms' in config:
 		#Loop through the alarms in turn
 		for alarm in config['alarms']:
 			#If each alarm contains the necessary information then run the alarm
-			if 'time' in alarm and 'duration' in alarm and 'days' in alarm and 'remain_on' in alarm:
-				start = {'red' : alarm['start_red'], 'green' : alarm['start_green'], 'blue' : alarm['start_blue']}
-				end = {'red' : alarm['end_red'], 'green' : alarm['end_green'], 'blue' : alarm['end_blue']}
-				#Check the days in turn
-				if 'monday' in alarm['days']:
-					schedule.every().monday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'tuesday' in alarm['days']:
-					schedule.every().tuesday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'wednesday' in alarm['days']:
-					schedule.every().wednesday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'thursday' in alarm['days']:
-					schedule.every().thursday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'friday' in alarm['days']:
-					schedule.every().friday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'saturday' in alarm['days']:
-					schedule.every().saturday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
-				if 'sunday' in alarm['days']:
-					schedule.every().sunday.at(alarm['time']).do(runAlarm, start, end, alarm['duration'], alarm['remain_on'])
+			loadAlarm(alarm)
 	out('Loaded alarms')
 				
 config_file.closed
@@ -205,9 +306,15 @@ out('Running boot LEDs')
 runStartup()
 
 out('Waiting for alarms')
-while True:
- schedule.run_pending()
- time.sleep(1)
+try:
+	while True:
+	 schedule.run_pending()
+	 time.sleep(1)
+except KeyboardInterrupt:
+    out('Goodbye') 
+finally:
+	GPIO.cleanup() 
+
 
 
 
