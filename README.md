@@ -5,7 +5,7 @@ This project uses a Raspberry Pi to control LEDs for use as an alarm clock. The 
 ## Circuit
 The following [diagram](http://fritzing.org) shows the setup of the alarm clock.
 
-![Raspberry Pi alarm clock](/img/circuit.png =500px)
+![Raspberry Pi alarm clock](/img/circuit.png =500x)
 
 * *[Raspberry Pi Zero](https://www.raspberrypi.org/products/pi-zero/)* - You could use any sort of Raspberry Pi but the Zero is plenty powerful enough and is a nice small size. If you use a Zero you will have to solder on the GPIO headers though.
 * *Neopixel* - You can get these in almost any size. I used a ring of 12, a WS2812.
