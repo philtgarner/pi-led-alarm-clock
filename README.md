@@ -2,6 +2,16 @@
 
 This project uses a Raspberry Pi to control LEDs for use as an alarm clock. The alarm clock can be easily configured and it will smoothly change from one colour (usually off) to another, imitating a sunrise and waking you up naturally - at least that's the theory.
 
+## Circuit
+The following diagram shows the setup of the alarm clock.
+![Raspberry Pi alarm clock](/img/circuit.png)
+
+* *[Raspberry Pi Zero](https://www.raspberrypi.org/products/pi-zero/)* - You could use any sort of Raspberry Pi but the Zero is plenty powerful enough and is a nice small size. If you use a Zero you will have to solder on the GPIO headers though.
+* *Neopixel* - You can get these in almost any size. I used a ring of 12, a WS2812.
+* *5 volt TTL* - The LED ring requires a 5 volt supply and the Pi only outputs 3 volts, the use of a TTL means you can power the Pi and LEDs from the same power supply. I used a FT232RL.
+* *Switches* - Two momentary switches.
+* *10k resistors* - The internal pull up resistors didn't seem to prevent interference in my setup so I added one 10k resistor per switch.
+
 ## Features
 This project is very much in its infancy, it works at a basic level but there are a handful of features to add in the future.
 
@@ -16,6 +26,7 @@ This project is very much in its infancy, it works at a basic level but there ar
   * Button to turn light on at any time the alarm isn't in use - use different colours for different times of day
   * Button to turn light on while alarm is going off - immediately fade up
 * Enable configuration with web UI
+* Integration of LDR to enable the nightlight/clock brightness to reflect the ambient light
 
 ## Setup
 To configure the LEDs you will need to change some constants in `alarm.py`. To setup a series of alarms you will need to setup a `config.json` file.
@@ -45,4 +56,3 @@ hdmi_force_hotplug=1
 hdmi_force_edid_audio=1
 ````
 * If your LEDs are not showing the correct colours it may be because the colour order is set wrong. Make sure you set it correctly (thanks to [penfold42](https://github.com/penfold42) on [rpi_ws281x issue 122](https://github.com/jgarff/rpi_ws281x/issues/122)).
-
