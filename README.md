@@ -47,7 +47,7 @@ The configuration of the LEDs is done by adjusting a few constants in `alarm.py`
 All the alarm configurations are specified in `config.json`. Copy `sample-config.json` and rename it to get started. The tags in the JSON file should be fairly self explanitory.
 
 ## Libraries
-This project uses [rpi_ws281x](https://github.com/jgarff/rpi_ws281x) to control the LEDs and [schedule](https://github.com/dbader/schedule) to start the alarms at a given time
+This project uses [rpi_ws281x](https://github.com/jgarff/rpi_ws281x) to control the LEDs (adafruit has a great [tutorial](https://learn.adafruit.com/neopixels-on-raspberry-pi/software) on getting setup with rpi_ws281x) and [schedule](https://github.com/dbader/schedule) to start the alarms at a given time
 
 ## Things to note
 * To make the script run on startup you should add the command to `rc.local` as per [these instructions](https://www.raspberrypi.org/documentation/linux/usage/rc-local.md).
