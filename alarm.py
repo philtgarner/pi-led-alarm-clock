@@ -57,9 +57,10 @@ alarm_status_lock = threading.Lock()
 #Start the listeners for the buttons
 def buttonListener():
 	global BUTTON_ONE_PIN
-	global BUTTON_BOUNCE_TIME	
-	GPIO.add_event_detect(BUTTON_ONE_PIN, GPIO.RISING, callback=toggleBedsideLight, bouncetime=BUTTON_BOUNCE_TIME)  
-	GPIO.add_event_detect(BUTTON_TWO_PIN, GPIO.RISING, callback=showOff, bouncetime=BUTTON_BOUNCE_TIME)  
+	global BUTTON_TWO_PIN
+	global BUTTON_BOUNCE_TIME
+	GPIO.add_event_detect(BUTTON_ONE_PIN, GPIO.RISING, callback=toggleBedsideLight, bouncetime=BUTTON_BOUNCE_TIME)
+	GPIO.add_event_detect(BUTTON_TWO_PIN, GPIO.RISING, callback=showOff, bouncetime=BUTTON_BOUNCE_TIME)
 
 #Spins some LEDs a few times
 def showOff(channel):
@@ -70,18 +71,18 @@ def showOff(channel):
 #Spins the LEDs in a given colour. Performs one spin
 def spin(r, g, b):
 	global strip
-	for led in range(strip.numPixels()):	
-		for ledOff in range(strip.numPixels()):		
+	for led in range(strip.numPixels()):
+		for ledOff in range(strip.numPixels()):
 			strip.setPixelColorRGB(ledOff, 0, 0, 0)
 		strip.setPixelColorRGB(led, r, g, b)
 		strip.show()
 		time.sleep(0.05)
-		
-	for ledOff in range(strip.numPixels()):		
+
+	for ledOff in range(strip.numPixels()):
 		strip.setPixelColorRGB(ledOff, 0, 0, 0)
 	strip.show()
 
-#Toggles the bedside light functionality. 
+#Toggles the bedside light functionality.
 def toggleBedsideLight(channel):
 	global current_colour_lock
 	global alarm_status_lock
@@ -91,14 +92,14 @@ def toggleBedsideLight(channel):
 	global alarm_on
 	global off
 	global on
-	
+
 	with alarm_status_lock:
 		if alarm_on:
 			alarm_on = False
 			with current_colour_lock:
 				current_colour = {'red' : current_red, 'green' : current_green, 'blue' : current_blue}
 				alarm_off_thread = threading.Thread(target=transition, args=(current_colour, off, 1, False))
-				alarm_off_thread.daemon = True	
+				alarm_off_thread.daemon = True
 				#Run the threads
 				alarm_off_thread.start()
 		else:
@@ -106,13 +107,13 @@ def toggleBedsideLight(channel):
 				current_colour = {'red' : current_red, 'green' : current_green, 'blue' : current_blue}
 				if current_red == 0 and current_green == 0 and current_blue == 0:
 					light_on_thread = threading.Thread(target=transition, args=(current_colour, on, 1, False))
-					light_on_thread.daemon = True	
+					light_on_thread.daemon = True
 					light_on_thread.start()
 				else:
 					light_off_thread = threading.Thread(target=transition, args=(current_colour, off, 1, False))
-					light_off_thread.daemon = True	
-					light_off_thread.start()				
-			
+					light_off_thread.daemon = True
+					light_off_thread.start()
+
 #Restarts the Raspberry Pi.
 def restartPi():
 	os.system('sudo shutdown -r now')
@@ -122,15 +123,15 @@ def runAlarm(start, end, duration, remain_on):
 	global alarm_on
 	with alarm_status_lock:
 		alarm_on = True
-	
+
 	#Build a thread to run the alarm cycle
 	alarm_on_thread = threading.Thread(target=transition, args=(start, end, duration, True))
 	alarm_on_thread.daemon = True
-	
-	#Build a thread to turn off the alarm 
+
+	#Build a thread to turn off the alarm
 	alarm_off_thread = threading.Thread(target=turnOffAlarm, args=(duration, remain_on))
-	alarm_off_thread.daemon = True	
-	
+	alarm_off_thread.daemon = True
+
 	#Run the threads
 	alarm_on_thread.start()
 	alarm_off_thread.start()
@@ -142,13 +143,13 @@ def turnOffAlarm(duration, remain_on):
 	global current_green
 	global current_blue
 	global alarm_off_duration
-	
+
 	out('Waiting for alarm to finish')
 	time.sleep(duration)
 	out('Waiting for remaining on time')
 	time.sleep(remain_on)
 	out('Ready to turn off alarm')
-	
+
 	if alarm_on:
 		out('Turning off alarm')
 		current = {'red' : current_red, 'green' : current_green, 'blue' : current_blue}
@@ -164,7 +165,7 @@ def transition(start, end, duration, interruptable = False):
 	global current_green
 	global current_blue
 	global alarm_on
-		
+
 	diffRed = end['red'] - start['red']
 	diffGreen = end['green'] - start['green']
 	diffBlue = end['blue'] - start['blue']
@@ -173,13 +174,13 @@ def transition(start, end, duration, interruptable = False):
 	#Sleep is pretty inaccurate with small numbers, if its less then 2ms just don't sleep.
 	if interval < 0.002:
 		interval = 0
-	
+
 	out('Starting transition...')
 	#Set the initial colour
 	for led in range(strip.numPixels()):
 		strip.setPixelColorRGB(led, start['red'], start['green'], start['blue'])
 		strip.show()
-	
+
 	for step in range(steps):
 		#Build a randomly sorted array to ensure the lights come on randomly (avoids a spiral effect)
 		random_order = []
@@ -200,7 +201,7 @@ def transition(start, end, duration, interruptable = False):
 					time.sleep(interval)
 				else:
 					return
-			
+
 	#Set the final colour
 	for led in range(strip.numPixels()):
 		strip.setPixelColorRGB(led, end['red'], end['green'], end['blue'])
@@ -208,10 +209,10 @@ def transition(start, end, duration, interruptable = False):
 	current_red = end['red']
 	current_green = end['green']
 	current_blue = end['blue']
-	
+
 	out('End of transition')
-	
-#Runs a startup sequence (fades LEDs in and out to show program is running)		
+
+#Runs a startup sequence (fades LEDs in and out to show program is running)
 def runStartup():
 	global boot_red
 	global boot_green
@@ -230,7 +231,7 @@ def out(message):
 		with print_lock:
 			print(message)
 
-#Schedules a single alarm			
+#Schedules a single alarm
 def loadAlarm(alarm):
 	if 'time' in alarm and 'duration' in alarm and 'days' in alarm and 'remain_on' in alarm:
 		start = {'red' : alarm['start_red'], 'green' : alarm['start_green'], 'blue' : alarm['start_blue']}
@@ -254,36 +255,36 @@ def loadAlarm(alarm):
 	else:
 		out('Cannot load alarm')
 
-	
+
 #Run application
 out('Reading configuration file...')
 with open(os.path.join(CONFIG_DIR, CONFIG_FILE)) as config_file:
 	config = json.load(config_file)
-	
+
 	#Load the boot colours
 	if 'boot_red' in config:
 		boot_red = config['boot_red']
 	if 'boot_green' in config:
 		boot_green = config['boot_green']
 	if 'boot_blue' in config:
-		boot_blue = config['boot_blue']	
+		boot_blue = config['boot_blue']
 	if 'alarm_off_duration' in config:
-		alarm_off_duration = config['alarm_off_duration']	
+		alarm_off_duration = config['alarm_off_duration']
 	out('Loaded configuration')
-	
+
 	out('Configuring the buttons...')
 	GPIO.setmode(GPIO.BCM)
-	GPIO.setup(BUTTON_ONE_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-	GPIO.setup(BUTTON_TWO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+	GPIO.setup(BUTTON_ONE_PIN, GPIO.IN)
+	GPIO.setup(BUTTON_TWO_PIN, GPIO.IN)
 	out('Configured the button')
 	out('Starting thread to listen for button presses...')
 	#Listen for button presses
 	buttonListener()
 	out('Started thread to listen for button presses')
-	
+
 	out('I think the time is: ' + strftime("%Y-%m-%d %H:%M:%S"))
-	
-	
+
+
 	out('Loading alarms...')
 	#Check to see if there are any alarms listed
 	if 'alarms' in config:
@@ -292,7 +293,7 @@ with open(os.path.join(CONFIG_DIR, CONFIG_FILE)) as config_file:
 			#If each alarm contains the necessary information then run the alarm
 			loadAlarm(alarm)
 	out('Loaded alarms')
-				
+
 config_file.closed
 out('Closed configuration file')
 
@@ -311,12 +312,6 @@ try:
 	 schedule.run_pending()
 	 time.sleep(1)
 except KeyboardInterrupt:
-    out('Goodbye') 
+    out('Goodbye')
 finally:
-	GPIO.cleanup() 
-
-
-
-
-
-
+	GPIO.cleanup()
