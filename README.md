@@ -57,3 +57,4 @@ hdmi_force_hotplug=1
 hdmi_force_edid_audio=1
 ````
 * If your LEDs are not showing the correct colours it may be because the colour order is set wrong. Make sure you set it correctly (thanks to [penfold42](https://github.com/penfold42) on [rpi_ws281x issue 122](https://github.com/jgarff/rpi_ws281x/issues/122)).
+* To get the Pi to recognise the clock unit I had to [enable I2C](https://www.raspberrypi.org/documentation/configuration/device-tree.md).

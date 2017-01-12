@@ -7,6 +7,8 @@ from random import shuffle
 import threading
 import os
 import RPi.GPIO as GPIO
+from Adafruit_LED_Backpack import SevenSegment
+import datetime
 
 #Non-configurable constants
 CONFIG_FILE = 'config.json'
@@ -48,6 +50,11 @@ strip 				= None
 #The off colour
 off = {'red' : 0, 'green' : 0, 'blue' : 0}
 on = {'red' : 0, 'green' : 100, 'blue' : 0}
+
+#The clock
+clock = SevenSegment.SevenSegment()
+current_clock_display = 0
+CLOCK_24_HOUR = True
 
 #Threading locks
 print_lock = threading.Lock()
@@ -255,6 +262,24 @@ def loadAlarm(alarm):
 	else:
 		out('Cannot load alarm')
 
+def updateClock():
+	global clock
+	global current_clock_display
+	global CLOCK_24_HOUR
+	now = datetime.datetime.now()
+	new_clock_display = (now.hour * 100) + now.minute
+	if not CLOCK_24_HOUR and new_clock_display >= 1200:
+		new_clock_display = new_clock_display - 1200
+
+	if new_clock_display != current_clock_display:
+		out('Updating clock to ' + str(new_clock_display))
+		current_clock_display = new_clock_display
+		clock.clear()
+		clock.print_float(current_clock_display, decimal_digits=0)
+		clock.set_colon(True)
+		clock.write_display()
+
+
 
 #Run application
 out('Reading configuration file...')
@@ -297,6 +322,12 @@ with open(os.path.join(CONFIG_DIR, CONFIG_FILE)) as config_file:
 config_file.closed
 out('Closed configuration file')
 
+#Initialise the clock
+out('Initialising the clock')
+clock.begin()
+clock.set_brightness(0)
+out('Clock initialised')
+
 out('Initialising LEDs...')
 print(LED_STRIP_TYPE)
 strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL, LED_STRIP_TYPE)
@@ -311,6 +342,7 @@ try:
 	while True:
 	 schedule.run_pending()
 	 time.sleep(1)
+	 updateClock()
 except KeyboardInterrupt:
     out('Goodbye')
 finally:
